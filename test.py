@@ -45,6 +45,9 @@ for cluster in clusters["clusters"]:
   for nodepool in nodepools["nodepools"]:
     print("%s: %s %d" % (nodepool["name"], nodepool["id"], nodepool["size"]))
 
-n = func.get_oke_node_pool("ocid1.nodepool.oc19.eu-frankfurt-2.aaaaaaaarjzfwwc3qunzfuuvltvoogdpdv7begsmoebhusywxnclft6eut5q", config=config)
+n = func.get_oke_node_pool("ocid1.nodepool.oc19.eu-frankfurt-2.aaaaaaaa4nwnx5to6n2fqjgkabk6ohwo6c5sgizaaulwdl6kinodbkywhb2q", config=config)
+nodepool = n["nodepool"]
+print("%s: %s %d" % (nodepool["name"], nodepool["id"], nodepool["size"]))
+n = func.set_oke_node_pool("ocid1.nodepool.oc19.eu-frankfurt-2.aaaaaaaa4nwnx5to6n2fqjgkabk6ohwo6c5sgizaaulwdl6kinodbkywhb2q", 0, config=config)
 nodepool = n["nodepool"]
 print("%s: %s %d" % (nodepool["name"], nodepool["id"], nodepool["size"]))

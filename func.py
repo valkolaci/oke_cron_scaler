@@ -30,7 +30,17 @@ def handler(ctx, data: io.BytesIO = None):
     print("Requested node pool '%s' change size: %d" % (nodepool_id, size))
 
     signer = oci.auth.signers.get_resource_principals_signer()
-    resp = get_oke_node_pool(nodepool_id, signer=signer)  # function defined below
+    resp = get_oke_node_pool(nodepool_id, signer=signer)
+    np = resp["nodepool"]
+    current = np["size"]
+    print("Requested node pool current size: %d" % (current))
+
+    if current == size:
+      print("No change needed")
+    else:
+      print("Updating node pool '%s' to size: %d" % (nodepool_id, size))
+      resp = set_oke_node_pool(nodepool_id, size, signer=signer)
+
     return response.Response(
         ctx,
         response_data=json.dumps(resp),
@@ -122,6 +132,29 @@ def get_oke_node_pool(nodepool_id, config = {}, **kwargs):
             nodepool_id
         )
         # Create a list that holds a list of the node pool id and name next to each other
+        nodepool = { "id": n.data.id, "name": n.data.name, "size": n.data.node_config_details.size }
+    except Exception as ex:
+        print("ERROR: Cannot access node pool", ex, flush=True)
+        raise
+    resp = {"nodepool": nodepool}
+    return resp
+
+# Set OKE node pool
+def set_oke_node_pool(nodepool_id, size, config = {}, **kwargs):
+    client = oci.container_engine.ContainerEngineClient(config=config, **kwargs)
+    try:
+
+        client.update_node_pool(
+            nodepool_id,
+            update_node_pool_details=oci.container_engine.models.UpdateNodePoolDetails(
+              node_config_details=oci.container_engine.models.UpdateNodePoolNodeConfigDetails(
+                size=size
+              )
+            )
+        )
+        n = client.get_node_pool(
+            nodepool_id
+        )
         nodepool = { "id": n.data.id, "name": n.data.name, "size": n.data.node_config_details.size }
     except Exception as ex:
         print("ERROR: Cannot access node pool", ex, flush=True)
