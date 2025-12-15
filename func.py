@@ -7,9 +7,10 @@
 
 import io
 import json
-
 from fdk import response
 import oci.identity
+
+from cfg import Config
 
 def handler(ctx, data: io.BytesIO = None):
     try:
