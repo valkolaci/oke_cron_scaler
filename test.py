@@ -1,28 +1,30 @@
 #!/usr/bin/env python
 
+import os
 import json
 import oci
+
+from cfg import Config
 import oke
 
-s = '{"nodepool_id":"ocid1.nodepool.oc19.eu-frankfurt-2.aaaaaaaarjzfwwc3qunzfuuvltvoogdpdv7begsmoebhusywxnclft6eut5q","size":5}'
+# Read and parse configuration
+c = Config.read_config()
+print(c.dump())
 
+nodepool_id = os.environ['NODEPOOL_ID'] if 'NODEPOOL_ID' in os.environ else None
+default_size = os.environ['DEFAULT_SIZE'] if 'DEFAULT_SIZE' in os.environ else None
+
+if nodepool_id is None or nodepool_id == '':
+  raise Exception("Missing NODEPOOL_ID environment parameter")
+if default_size is None or default_size == '':
+  raise Exception("Missing DEFAULT_SIZE environment parameter")
 try:
-      body = json.loads(s)
-      nodepool_id = body.get("nodepool_id")
-      if nodepool_id is None or nodepool_id == "":
-        raise "Missing nodepool_id parameter"
-      size = body.get("size")
-      if size is None or size == "":
-        raise "Missing size parameter"
-      try:
-        size = int(size)
-      except (ValueError) as ex:
-        raise "Invalid size parameter (not an integer)"
-except (Exception, ValueError) as ex:
-      print(str(ex), flush=True)
+  default_size = int(default_size)
+except (ValueError) as ex:
+  raise Exception("Invalid non integer DEFAULT_SIZE environment parameter")
+
+size = default_size
 print("Parse arguments: %s: %d" % (nodepool_id, size))
-
-
 
 config = oci.config.from_file()
 oci.config.validate_config(config)
@@ -45,9 +47,11 @@ for cluster in clusters["clusters"]:
   for nodepool in nodepools["nodepools"]:
     print("%s: %s %d" % (nodepool["name"], nodepool["id"], nodepool["size"]))
 
-n = oke.get_oke_node_pool("ocid1.nodepool.oc19.eu-frankfurt-2.aaaaaaaa4nwnx5to6n2fqjgkabk6ohwo6c5sgizaaulwdl6kinodbkywhb2q", config=config)
+
+n = oke.get_oke_node_pool(nodepool_id, config=config)
 nodepool = n["nodepool"]
 print("%s: %s %d" % (nodepool["name"], nodepool["id"], nodepool["size"]))
-n = oke.set_oke_node_pool_size("ocid1.nodepool.oc19.eu-frankfurt-2.aaaaaaaa4nwnx5to6n2fqjgkabk6ohwo6c5sgizaaulwdl6kinodbkywhb2q", 0, config=config)
-nodepool = n["nodepool"]
-print("%s: %s %d" % (nodepool["name"], nodepool["id"], nodepool["size"]))
+if nodepool["size"] != size:
+  n = oke.set_oke_node_pool_size(nodepool_id, size, config=config)
+  nodepool = n["nodepool"]
+  print("%s: %s %d" % (nodepool["name"], nodepool["id"], nodepool["size"]))
