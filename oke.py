@@ -1,60 +1,9 @@
+# -*- coding: UTF-8 -*-
 #
-# oci-list-compartments-python version 1.0.
-#
-# Copyright (c) 2020 Oracle, Inc.
-# Licensed under the Universal Permissive License v 1.0 as shown at https://oss.oracle.com/licenses/upl.
+# oke.py
 #
 
-import sys
-import io
-import json
-from fdk import response
 import oci.identity
-
-from cfg import Config
-
-# Read and parse configuration
-c = Config.read_config()
-print(c.dump())
-
-sys.exit(1)
-
-# Handle REST calls
-def handler(ctx, data: io.BytesIO = None):
-    try:
-      body = json.loads(data.getvalue())
-      nodepool_id = body.get("nodepool_id")
-      if nodepool_id is None or nodepool_id == "":
-        raise "Missing nodepool_id parameter"
-      size = body.get("size")
-      if size is None or size == "":
-        raise "Missing size parameter"
-      try:
-        size = int(size)
-      except (ValueError) as ex:
-        raise "Invalid size parameter (not an integer)"
-    except (Exception, ValueError) as ex:
-      print(str(ex), flush=True)
-
-    print("Requested node pool '%s' change size: %d" % (nodepool_id, size))
-
-    signer = oci.auth.signers.get_resource_principals_signer()
-    resp = get_oke_node_pool(nodepool_id, signer=signer)
-    np = resp["nodepool"]
-    current = np["size"]
-    print("Requested node pool current size: %d" % (current))
-
-    if current == size:
-      print("No change needed")
-    else:
-      print("Updating node pool '%s' to size: %d" % (nodepool_id, size))
-      resp = set_oke_node_pool(nodepool_id, size, signer=signer)
-
-    return response.Response(
-        ctx,
-        response_data=json.dumps(resp),
-        headers={"Content-Type": "application/json"}
-    )
 
 # Calculate compartment path through parent links
 def get_compartment_path(compartments_by_id, tenancy_id, c):
@@ -67,7 +16,7 @@ def get_compartment_path(compartments_by_id, tenancy_id, c):
       name = "%s/%s" % (c["name"], name)
     return name
 
-# List compartments
+# Get list of compartments
 def list_compartments(config = {}, **kwargs):
     client = oci.identity.IdentityClient(config=config, **kwargs)
     # OCI API for managing users, groups, compartments, and policies
@@ -99,7 +48,7 @@ def list_compartments(config = {}, **kwargs):
     resp = {"compartments": compartments}
     return resp
 
-# List OKE clusters
+# Get list of OKE clusters
 def list_oke_clusters(compartment_id, config = {}, **kwargs):
     client = oci.container_engine.ContainerEngineClient(config=config, **kwargs)
     try:
@@ -115,7 +64,7 @@ def list_oke_clusters(compartment_id, config = {}, **kwargs):
     resp = {"clusters": clusters}
     return resp
 
-# List OKE node pools
+# Get list OKE node pools
 def list_oke_node_pools(compartment_id, cluster_id, config = {}, **kwargs):
     client = oci.container_engine.ContainerEngineClient(config=config, **kwargs)
     try:
@@ -132,7 +81,7 @@ def list_oke_node_pools(compartment_id, cluster_id, config = {}, **kwargs):
     resp = {"nodepools": nodepools}
     return resp
 
-# Get OKE node pool
+# Get OKE node pool params
 def get_oke_node_pool(nodepool_id, config = {}, **kwargs):
     client = oci.container_engine.ContainerEngineClient(config=config, **kwargs)
     try:
@@ -148,8 +97,8 @@ def get_oke_node_pool(nodepool_id, config = {}, **kwargs):
     resp = {"nodepool": nodepool}
     return resp
 
-# Set OKE node pool
-def set_oke_node_pool(nodepool_id, size, config = {}, **kwargs):
+# Set OKE node pool size
+def set_oke_node_pool_size(nodepool_id, size, config = {}, **kwargs):
     client = oci.container_engine.ContainerEngineClient(config=config, **kwargs)
     try:
 

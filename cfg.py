@@ -105,6 +105,11 @@ class Schedules:
   def __repr__(self):
     return ','.join('%s=%s' % (key, str(value)) for key, value in self.entries.items())
 
+  def find_schedule(self, name):
+    if name in self.entries:
+      return self.entries[name]
+    return None
+
 # A node pool rule entry
 #   schedule field: name of a schedule entry
 #   compartment field: an optional compartment name or id filter string
@@ -112,13 +117,19 @@ class Schedules:
 #   nodepool field: an optional node pool name filter or id string
 class RuleEntry:
   def __init__(self, schedule, compartment, cluster, nodepool):
-    self.schedule = schedule
+    self.schedulename = schedule
     self.compartment = compartment
     self.cluster = cluster
     self.nodepool = nodepool
 
   def __repr__(self):
     return 'schedule=%s compartment==%s cluster=%s nodepool=%s' % (self.schedule, self.compartment, self.cluster, self.nodepool)
+
+  def process_entry(self, schedules):
+    schedule = schedules.find_schedule(self.schedulename)
+    if schedule is None:
+      raise ConfigError('missing schedule %s' % (self.schedulename))
+    self.schedule = schedule
 
 # Node pool rules list
 #   entries field: a list of node pool rule entries
@@ -128,6 +139,13 @@ class Rules:
 
   def __repr__(self):
     return ','.join(str(entry) for entry in self.entries)
+
+  def process_entries(self, name, schedules):
+    for i, entry in enumerate(self.entries, start=1):
+      try:
+        entry.process_entry(schedules)
+      except ConfigError as e:
+        raise ConfigError('Invalid config option %s[%d]: %s' % (name, i, e.args[0]))
 
 # An exception entry
 #   start: an optional start date/time specification
@@ -249,6 +267,7 @@ class Config:
     self.rules = self.check_config_option_rules('rules')
     self.exceptions = self.check_config_option_exceptions('exceptions')
     self.exceptions.process_entries(self.timezone)
+    self.rules.process_entries('rules', self.schedules)
 
 # check config option
   def check_config_global_option(self, name, default=None, skipEmpty=False):

@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 
-import func
-import oci
 import json
+import oci
+import oke
 
 s = '{"nodepool_id":"ocid1.nodepool.oc19.eu-frankfurt-2.aaaaaaaarjzfwwc3qunzfuuvltvoogdpdv7begsmoebhusywxnclft6eut5q","size":5}'
 
@@ -20,13 +20,13 @@ try:
         raise "Invalid size parameter (not an integer)"
 except (Exception, ValueError) as ex:
       print(str(ex), flush=True)
+print("Parse arguments: %s: %d" % (nodepool_id, size))
 
-print("Found: %s: %d" % (nodepool_id, size))
 
 
 config = oci.config.from_file()
 oci.config.validate_config(config)
-compartments = func.list_compartments(config=config)  # function defined below
+compartments = oke.list_compartments(config=config)  # function defined below
 for compartment in compartments["compartments"]:
   print("%s: %s" % (compartment["path"], compartment["id"]))
 
@@ -36,18 +36,18 @@ for compartment in compartments["compartments"]:
     found_compartment = compartment
     break
 
-clusters = func.list_oke_clusters(compartment["id"], config=config)
+clusters = oke.list_oke_clusters(compartment["id"], config=config)
 for cluster in clusters["clusters"]:
   print("%s: %s" % (cluster["name"], cluster["id"]))
 
 for cluster in clusters["clusters"]:
-  nodepools = func.list_oke_node_pools(compartment["id"], cluster["id"], config=config)
+  nodepools = oke.list_oke_node_pools(compartment["id"], cluster["id"], config=config)
   for nodepool in nodepools["nodepools"]:
     print("%s: %s %d" % (nodepool["name"], nodepool["id"], nodepool["size"]))
 
-n = func.get_oke_node_pool("ocid1.nodepool.oc19.eu-frankfurt-2.aaaaaaaa4nwnx5to6n2fqjgkabk6ohwo6c5sgizaaulwdl6kinodbkywhb2q", config=config)
+n = oke.get_oke_node_pool("ocid1.nodepool.oc19.eu-frankfurt-2.aaaaaaaa4nwnx5to6n2fqjgkabk6ohwo6c5sgizaaulwdl6kinodbkywhb2q", config=config)
 nodepool = n["nodepool"]
 print("%s: %s %d" % (nodepool["name"], nodepool["id"], nodepool["size"]))
-n = func.set_oke_node_pool("ocid1.nodepool.oc19.eu-frankfurt-2.aaaaaaaa4nwnx5to6n2fqjgkabk6ohwo6c5sgizaaulwdl6kinodbkywhb2q", 0, config=config)
+n = oke.set_oke_node_pool_size("ocid1.nodepool.oc19.eu-frankfurt-2.aaaaaaaa4nwnx5to6n2fqjgkabk6ohwo6c5sgizaaulwdl6kinodbkywhb2q", 0, config=config)
 nodepool = n["nodepool"]
 print("%s: %s %d" % (nodepool["name"], nodepool["id"], nodepool["size"]))
