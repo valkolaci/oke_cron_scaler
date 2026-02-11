@@ -12,6 +12,51 @@ from logs import fatal_exception
 
 logger = logging.getLogger(__name__)
 
+# Configuration YAML parsing
+# example config:
+# schedules:
+#   everyday:
+#     - start: "0 20 5 * *"
+#       end: "0 6 1 * *"
+#       size: 0
+#     - start: "0 20 1 * *"
+#       end: "0 6 2 * *"
+#       size: 0
+#     - start: "0 20 2 * *"
+#       end: "0 6 3 * *"
+#       size: 0
+#     - start: "0 20 3 * *"
+#       end: "0 6 4 * *"
+#       size: 0
+#     - start: "0 20 4 * *"
+#       end: "0 6 5 * *"
+#       size: 0
+#   weekend:
+#     - start: "0 20 5 * *"
+#       end: "0 6 1 * *"
+#       size: 0
+#   none: {}
+# rules:
+#   - compartment: sandbox/devops
+#     schedule: everyday
+#   - compartment: enap/cmp-tst
+#     schedule: everyday
+#   - compartment: enap/cmp-uat
+#     schedule: weekend
+#   - compartment: enap/cmp-prod
+#     schedule: none
+# exceptions:
+#   - comment: Weekend testing
+#     compartment: sandbox/devops
+#     start: 2025-12-19 18:00
+#     end: 2025-12-22 06:00
+#     size: ''
+#   - comment: Holiday
+#     start: 2025-12-24 00:00
+#     end: 2025-12-28 00:00
+#     size: 0
+
+
 # A cronjob specification
 #   minute field: set(0..59)
 #   hour field: set(0..59)
@@ -32,6 +77,7 @@ class CronJobSpec:
   def __repr__(self):
     return '%s %s %s %s %s' % (self.minute, self.hour, self.day, self.month, self.dow)
 
+# Get last firing of cronjob spec before datetime specified
   def get_last_fire(self, dt):
     while True:
       year = dt.year
@@ -42,17 +88,44 @@ class CronJobSpec:
         prev_month = self.month.get_previous(month)
         prev_month += 1
         if prev_month > month:
-          year -= 1
-        dt = datetime.datetime(year, prev_month, 1) - datetime.timedelta(minutes=1)
+          prev_year = year - 1
+        else:
+          prev_year = year
+        dt = datetime.datetime(prev_year, prev_month, 1) - datetime.timedelta(minutes=1)
         continue
       if day not in self.day.values or dow not in self.dow.values:
         prev_day = self.day.get_previous(day)
         prev_day += 1
         if prev_day > day:
           prev_month = self.month.get_previous(month)
-          if prev_month < month:
-            year -= 1
-        dt = datetime.datetime(year, prev_month, prev_day) - datetime.timedelta(minutes=1)
+          if prev_month > month:
+            prev_year = year - 1
+          else:
+            prev_year = year
+        else:
+          prev_month = month
+          prev_year = year
+        dt = datetime.datetime(prev_year, prev_month, prev_day) - datetime.timedelta(minutes=1)
+        continue
+      if hour not in self.hour.values:
+        prev_hour = self.hour.get_previous(hour)
+        prev_hour += 1
+        if prev_hour > hour:
+          prev_day = self.day.get_previous(day)
+          if prev_day > day:
+            prev_month = self.month.get_previous(month)
+            if prev_month > month:
+              prev_year = year - 1
+            else:
+              prev_year = year
+          else:
+            prev_month = month
+            prev_year = year
+        else:
+          prev_day = day
+          prev_month = month
+          prev_year = year
+        dt = datetime.datetime(prev_year, prev_month, prev_day) - datetime.timedelta(minutes=1)
         continue
 
     #### TODO
@@ -245,49 +318,6 @@ class Exceptions:
   def process_entries(self, timezone):
     for entry in self.entries:
       entry.process_entry(timezone)
-
-# example config:
-# schedules:
-#   everyday:
-#     - start: "0 20 5 * *"
-#       end: "0 6 1 * *"
-#       size: 0
-#     - start: "0 20 1 * *"
-#       end: "0 6 2 * *"
-#       size: 0
-#     - start: "0 20 2 * *"
-#       end: "0 6 3 * *"
-#       size: 0
-#     - start: "0 20 3 * *"
-#       end: "0 6 4 * *"
-#       size: 0
-#     - start: "0 20 4 * *"
-#       end: "0 6 5 * *"
-#       size: 0
-#   weekend:
-#     - start: "0 20 5 * *"
-#       end: "0 6 1 * *"
-#       size: 0
-#   none: {}
-# rules:
-#   - compartment: sandbox/devops
-#     schedule: everyday
-#   - compartment: enap/cmp-tst
-#     schedule: everyday
-#   - compartment: enap/cmp-uat
-#     schedule: weekend
-#   - compartment: enap/cmp-prod
-#     schedule: none
-# exceptions:
-#   - comment: Weekend testing
-#     compartment: sandbox/devops
-#     start: 2025-12-19 18:00
-#     end: 2025-12-22 06:00
-#     size: ''
-#   - comment: Holiday
-#     start: 2025-12-24 00:00
-#     end: 2025-12-28 00:00
-#     size: 0
 
 class ConfigError(Exception):
   def __init__(self, message):

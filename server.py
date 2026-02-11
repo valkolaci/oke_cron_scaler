@@ -57,11 +57,8 @@ class Server:
     self.config = Config.read_config()
     logger.info(self.config.dump())
 
-  def calc_nodepool_size(self, compartment, cluster, nodepool):
-    tzname = self.config.timezone
-    tz = datetime.timezone.utc if tzname is None else ZoneInfo(tzname)
-    now = datetime.datetime.now(tz)
-
+  def calc_nodepool_size(self, dt, compartment, cluster, nodepool):
+    # check exception list entries
     for exception in self.exceptions.entries:
       if exception.compartment is not None and exception.compartment != compartment:
         continue
@@ -69,10 +66,11 @@ class Server:
         continue
       if exception.nodepool is not None and exception.nodepool != nodepool:
         continue
-      if not exception.check_time(now):
+      if not exception.check_time(dt):
         continue
       return exception.size
 
+    # get schedule exception list entries
     found_schedule = None
     for rule in self.rules:
       if rule.compartment is not None and rule.compartment != compartment:
@@ -88,7 +86,7 @@ class Server:
 
     found_schedule_rule = None
     for rule in found_schedule.entries:
-      if not rule.check_time(now):
+      if not rule.check_time(dt):
         continue
       found_schedule_rule = rule
       break
@@ -97,12 +95,29 @@ class Server:
     return found_schedule_rule.size
 
   def handler(self, signer, ctx, data: io.BytesIO = None):
-    resp = get_oke_node_pool(self.nodepool_id, signer=signer)
-    np = resp["nodepool"]
+    tz = self.config.timezone
+    if tz is None:
+      tz = datetime.timezone.utc
+    now = datetime.datetime.now(tz)
+    logger.info("Current time: %s" % (now))
+
+    np_response = get_oke_node_pool(self.nodepool_id, signer=signer)
+    np = np_response["nodepool"]
+    np_name = np["name"]
+    cluster_id = np["cluster_id"]
+    cl_response = get_oke_cluster(cluster_id, signer=signer)
+    cl = np_response["cluster"]
+    cl_name = cl["name"]
+    compartment_id = cl["compartment_id"]
+    compartments = get_all_compartments()
+    cmp = compartments[compartment_id]
+    cmp_name = cmp.path
+
+    logger.info("Node pool name: %s cluster name: %s compartment name: %s" % (np_name, cl_name, cmp_name))
     current = np["size"]
     logger.info("Requested node pool current size: %d" % (current))
 
-    size = self.calc_nodepool_size()
+    size = self.calc_nodepool_size(now, cmp_name, cl_name, np_name)
     if size is None or size == '':
        size = self.default_size
     if current == size:

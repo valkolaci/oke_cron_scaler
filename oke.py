@@ -51,6 +51,38 @@ def list_compartments(config = {}, **kwargs):
     resp = {"compartments": compartments}
     return resp
 
+# Get dict of all compartments
+def get_all_compartments(config = {}, **kwargs):
+    client = oci.identity.IdentityClient(config=config, **kwargs)
+    # OCI API for managing users, groups, compartments, and policies
+    try:
+        signer = kwargs.get('signer', None)
+        tenancy_id = signer.tenancy_id if signer is not None else config['tenancy'] if config is not None and 'tenancy' in config else None
+        # Returns a list of all compartments and subcompartments in the tenancy (root compartment)
+        compartments = client.list_compartments(
+            tenancy_id,
+            compartment_id_in_subtree=True,
+            access_level='ANY'
+        )
+        compartments_by_id = dict()
+        compartments_by_path = dict()
+        for c in compartments.data:
+          compartments_by_id[c.id] = {
+            "id": c.id,
+            "name": c.name,
+            "parent_id": c.compartment_id
+          }
+        for c in compartments_by_id.values():
+          path = get_compartment_path(compartments_by_id, tenancy_id, c)
+          c["path"] = path
+          compartments_by_path[path] = c
+        compartments = compartments_by_id
+    except Exception as ex:
+        logging.error("Cannot access compartments", ex, flush=True)
+        raise
+    resp = {"compartments": compartments}
+    return resp
+
 # Get list of OKE clusters
 def list_oke_clusters(compartment_id, config = {}, **kwargs):
     client = oci.container_engine.ContainerEngineClient(config=config, **kwargs)
@@ -65,6 +97,22 @@ def list_oke_clusters(compartment_id, config = {}, **kwargs):
         logging.error("Cannot access clusters", ex, flush=True)
         raise
     resp = {"clusters": clusters}
+    return resp
+
+# Get OKE cluster params
+def get_oke_cluster(cluster_id, config = {}, **kwargs):
+    client = oci.container_engine.ContainerEngineClient(config=config, **kwargs)
+    try:
+
+        c = client.get_cluster(
+            cluster_id
+        )
+        # Return cluster data
+        cluster = { "id": c.data.id, "name": c.data.name, "compartment_id": c.data['compartment-id'],  }
+    except Exception as ex:
+        logging.error("Cannot access cluster", ex, flush=True)
+        raise
+    resp = {"cluster": cluster}
     return resp
 
 # Get list OKE node pools
@@ -92,8 +140,8 @@ def get_oke_node_pool(nodepool_id, config = {}, **kwargs):
         n = client.get_node_pool(
             nodepool_id
         )
-        # Create a list that holds a list of the node pool id and name next to each other
-        nodepool = { "id": n.data.id, "name": n.data.name, "size": n.data.node_config_details.size }
+        # Return node pool data
+        nodepool = { "id": n.data.id, "name": n.data.name, "cluster_id": m.data['cluster-id'], "size": n.data.node_config_details.size }
     except Exception as ex:
         logging.error("Cannot access node pool", ex, flush=True)
         raise
