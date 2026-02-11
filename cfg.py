@@ -32,6 +32,31 @@ class CronJobSpec:
   def __repr__(self):
     return '%s %s %s %s %s' % (self.minute, self.hour, self.day, self.month, self.dow)
 
+  def get_last_fire(self, dt):
+    while True:
+      year = dt.year
+      month = dt.month
+      day = dt.day
+      dow = dt.weekday()
+      if month not in self.month.values:
+        prev_month = self.month.get_previous(month)
+        prev_month += 1
+        if prev_month > month:
+          year -= 1
+        dt = datetime.datetime(year, prev_month, 1) - datetime.timedelta(minutes=1)
+        continue
+      if day not in self.day.values or dow not in self.dow.values:
+        prev_day = self.day.get_previous(day)
+        prev_day += 1
+        if prev_day > day:
+          prev_month = self.month.get_previous(month)
+          if prev_month < month:
+            year -= 1
+        dt = datetime.datetime(year, prev_month, prev_day) - datetime.timedelta(minutes=1)
+        continue
+
+    #### TODO
+
 # Validate a cronjob field
 def check_cronjob_field_value(value, lowest, highest):
   try:
@@ -79,6 +104,18 @@ class CronJobFieldSpec:
   def __repr__(self):
     return ','.join(str(value) for value in sorted(self.values))
 
+  def get_previous(self, reference):
+    while reference >= lowest:
+      reference -= 1
+      if reference in self.values:
+        return reference
+    reference = highest+1
+    while reference >= lowest:
+      reference -= 1
+      if reference in self.values:
+        return reference
+    return -1
+
 # A schedule rule entry
 #   size field: a non-negative integer (0..n)
 #   start field: a cronjob syntax string
@@ -91,6 +128,15 @@ class ScheduleRuleEntry:
 
   def __repr__(self):
     return 'size=%d start=%s end=%s' % (self.size, self.start, self.end)
+
+  def check_time(self, dt):
+    last_start = self.start.get_last_fire(dt)
+    last_end = self.end.get_last_fire(dt)
+    if last_start == None:
+      return False
+    if last_end == None:
+      return True
+    return last_end < last_start
 
 # A schedule entry
 #   name field: name string
@@ -180,6 +226,13 @@ class ExceptionEntry:
     if self.end is not None:
       self.end = datetime(self.end.year, self.end.month, self.end.day, self.end.hour, self.end.minute, self.end.second, tzinfo=timezone)
 
+  def check_time(self, dt):
+    if self.start is not None and dt < self.start:
+      return False
+    if self.end is not None and dt >= self.end:
+      return False
+    return True
+
 # Excepions list
 #   entries field: a list of exception entries
 class Exceptions:
@@ -230,7 +283,7 @@ class Exceptions:
 #     compartment: sandbox/devops
 #     start: 2025-12-19 18:00
 #     end: 2025-12-22 06:00
-#     size: on
+#     size: ''
 #   - comment: Holiday
 #     start: 2025-12-24 00:00
 #     end: 2025-12-28 00:00
