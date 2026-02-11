@@ -10,6 +10,8 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from datetime import datetime
 from logs import fatal_exception
 
+logger = logging.getLogger(__name__)
+
 # A cronjob specification
 #   minute field: set(0..59)
 #   hour field: set(0..59)
@@ -30,6 +32,7 @@ class CronJobSpec:
   def __repr__(self):
     return '%s %s %s %s %s' % (self.minute, self.hour, self.day, self.month, self.dow)
 
+# Validate a cronjob field
 def check_cronjob_field_value(value, lowest, highest):
   try:
     if value == '*':
@@ -43,6 +46,9 @@ def check_cronjob_field_value(value, lowest, highest):
   except ValueError as e:
     raise ValueError('invalid field value %s in cronjob specification' % (value))
 
+# A cronjob field specification
+#   lowest: lowest acceptable value
+#   highest: highest acceptable value
 class CronJobFieldSpec:
   def __init__(self, spec, lowest, highest):
     values = set()
@@ -250,12 +256,12 @@ class Config:
   def __init__(self):
     try:
       config_filename = os.getenv('CONFIG_FILE', Config.DEFAULT_CONFIG_FILE)
-      logging.info('Reading config file %s' % (config_filename))
+      logger.info('Reading config file %s' % (config_filename))
       stream = open(config_filename, 'r')
       self.config = yaml.safe_load(stream)
       self.parse_config_contents()
     except ConfigError as e:
-      logging.error(e.args[0])
+      logger.error(e.args[0])
       sys.exit(1)
     except Exception as e:
       fatal_exception('during loading config file', e)

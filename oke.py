@@ -3,7 +3,10 @@
 # oke.py
 #
 
+import logging
 import oci.identity
+
+logger = logging.getLogger(__name__)
 
 # Calculate compartment path through parent links
 def get_compartment_path(compartments_by_id, tenancy_id, c):
@@ -43,7 +46,7 @@ def list_compartments(config = {}, **kwargs):
           compartments_by_path[path] = c
         compartments = [compartments_by_id[c.id] for c in compartments.data]
     except Exception as ex:
-        print("ERROR: Cannot access compartments", ex, flush=True)
+        logging.error("Cannot access compartments", ex, flush=True)
         raise
     resp = {"compartments": compartments}
     return resp
@@ -59,7 +62,7 @@ def list_oke_clusters(compartment_id, config = {}, **kwargs):
         # Create a list that holds a list of the clusters id and name next to each other
         clusters = [{ "id": c.id, "name": c.name, "object": c } for c in clusters.data]
     except Exception as ex:
-        print("ERROR: Cannot access clusters", ex, flush=True)
+        logging.error("Cannot access clusters", ex, flush=True)
         raise
     resp = {"clusters": clusters}
     return resp
@@ -76,7 +79,7 @@ def list_oke_node_pools(compartment_id, cluster_id, config = {}, **kwargs):
         # Create a list that holds a list of the node pool id and name next to each other
         nodepools = [{ "id": n.id, "name": n.name, "size": n.node_config_details.size, "object": n } for n in nodepools.data]
     except Exception as ex:
-        print("ERROR: Cannot access node pools", ex, flush=True)
+        logging.error("Cannot access node pools", ex, flush=True)
         raise
     resp = {"nodepools": nodepools}
     return resp
@@ -92,7 +95,7 @@ def get_oke_node_pool(nodepool_id, config = {}, **kwargs):
         # Create a list that holds a list of the node pool id and name next to each other
         nodepool = { "id": n.data.id, "name": n.data.name, "size": n.data.node_config_details.size }
     except Exception as ex:
-        print("ERROR: Cannot access node pool", ex, flush=True)
+        logging.error("Cannot access node pool", ex, flush=True)
         raise
     resp = {"nodepool": nodepool}
     return resp
@@ -115,7 +118,7 @@ def set_oke_node_pool_size(nodepool_id, size, config = {}, **kwargs):
         )
         nodepool = { "id": n.data.id, "name": n.data.name, "size": n.data.node_config_details.size }
     except Exception as ex:
-        print("ERROR: Cannot access node pool", ex, flush=True)
+        logging.error("Cannot access node pool", ex, flush=True)
         raise
     resp = {"nodepool": nodepool}
     return resp

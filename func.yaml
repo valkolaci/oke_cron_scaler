@@ -1,8 +1,8 @@
 schema_version: 20180708
 name: oke-cron-scaler
-version: 0.0.29
+version: 0.0.30
 runtime: python
 build_image: fnproject/python:3.12-dev
 run_image: fnproject/python:3.12
-entrypoint: /python/bin/fdk /function/server.py handler
+entrypoint: /python/bin/fdk /function/handler.py handler
 memory: 256
